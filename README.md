@@ -19,8 +19,8 @@ A powerful tool for creating polyglot files that combine image/PDF files with ZI
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/InfoSecREDD/polyzip.git
-cd polyzip
+git clone https://github.com/InfoSecREDD/PolyZip.git
+cd PolyZip
 ```
 
 2. Make the script executable:
