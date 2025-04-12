@@ -130,7 +130,7 @@ BANNER = r'''
 ██║     ╚██████╔╝███████╗██║   ███████╗██║██║     
 ╚═╝      ╚═════╝ ╚══════╝╚═╝   ╚══════╝╚═╝╚═╝     
                                                    
-    [ PNG Steganography Tool - Hide Any Data ]
+    [   Steganography Tool - Hide Any Data   ]
    ╔══════════════════════════════════════════╗
    ║  pack ≫ extract ≫ detect ≫ ghost in png  ║
    ╚══════════════════════════════════════════╝
