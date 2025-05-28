@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-PolyZip - A tool for creating polyglot files (PNG/JPEG/GIF/PDF + ZIP)
+PolyZip - A tool for creating polyglot files (FileType + ZIP)
 Based on the work of DavidBuchanan314 (https://github.com/DavidBuchanan314/tweetable-polyglot-png)
 Author: InfoSecREDD
+Version: 2.0.0
 """
 
 import zlib
@@ -130,9 +131,9 @@ BANNER = r'''
 ██║     ╚██████╔╝███████╗██║   ███████╗██║██║     
 ╚═╝      ╚═════╝ ╚══════╝╚═╝   ╚══════╝╚═╝╚═╝     
                                                    
-    [   Steganography Tool - Hide Any Data   ]
+    [ Multi-Format Polyglot Tool - Hide Any Data ]
    ╔══════════════════════════════════════════╗
-   ║  pack ≫ extract ≫ detect ≫ ghost in png  ║
+   ║  pack ≫ extract ≫ detect ≫ ghost in file ║
    ╚══════════════════════════════════════════╝
 '''
 
@@ -140,6 +141,21 @@ PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 JPEG_MAGIC = b"\xff\xd8\xff"
 GIF_MAGIC = b"GIF8"
 PDF_MAGIC = b"%PDF-"
+BMP_MAGIC = b"BM"
+WEBP_MAGIC = b"RIFF"
+TIFF_MAGIC_LE = b"II*\x00"
+TIFF_MAGIC_BE = b"MM\x00*"
+WAV_MAGIC = b"RIFF"
+MP3_MAGIC = b"\xFF\xFB"
+MP3_MAGIC2 = b"\xFF\xF3"
+MP3_MAGIC3 = b"\xFF\xFA"
+MP3_MAGIC4 = b"\xFF\xF2"
+FLAC_MAGIC = b"fLaC"
+AVI_MAGIC = b"RIFF"
+ICO_MAGIC = b"\x00\x00\x01\x00"
+CUR_MAGIC = b"\x00\x00\x02\x00"
+MP4_MAGIC = b"ftyp"
+MZ_MAGIC = b"MZ"
 
 def print_banner():
     colors = {
@@ -156,7 +172,7 @@ def print_banner():
     colored_banner = colors['cyan'] + BANNER + colors['reset']
     print(colored_banner)
     
-    version_info = f"{colors['green']}[+]{colors['reset']} {colors['white']}Version 1.2.0{colors['reset']} | " + \
+    version_info = f"{colors['green']}[+]{colors['reset']} {colors['white']}Version 2.0.0{colors['reset']} | " + \
                    f"{colors['green']}[+]{colors['reset']} {colors['white']}Data Hidden in Plain Sight{colors['reset']}"
     print(version_info)
     print(f"{colors['green']}[+]{colors['reset']} {colors['white']}Use {colors['cyan']}detect{colors['reset']} to scan for hidden data")
@@ -164,13 +180,13 @@ def print_banner():
 
 def print_usage():
     print(f"USAGE: {sys.argv[0]} [pack|extract|detect] args...")
-    print(f"  pack: {sys.argv[0]} pack cover.[png|pdf|jpg|gif] file1 [file2 file3 ...] output.[png|pdf|jpg|gif]")
+    print(f"  pack: {sys.argv[0]} pack cover.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|avi|ico|cur|mp4|mov|exe|dll] file1 [file2 file3 ...] output.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|avi|ico|cur|mp4|mov|exe|dll]")
     print(f"        # Embeds files into cover file and saves to output file")
     print(f"        # The file can be viewed normally or renamed to .zip and extracted with standard tools")
-    print(f"  extract: {sys.argv[0]} extract input.[png|pdf|jpg|gif] [output]")
+    print(f"  extract: {sys.argv[0]} extract input.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|avi|ico|cur|mp4|mov|exe|dll] [output]")
     print(f"           # output can be a file or directory (auto-detected for multi-files)")
     print(f"           # if output is omitted, extracts to directory named after input file")
-    print(f"  detect: {sys.argv[0]} detect [input.[png|pdf|jpg|gif]]  # If no file specified, scans current directory")
+    print(f"  detect: {sys.argv[0]} detect [input.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|avi|ico|cur|mp4|mov|exe|dll]]  # If no file specified, scans current directory")
     sys.exit(1)
 
 if len(sys.argv) < 2:
@@ -394,7 +410,7 @@ def is_likely_text_file(data, sample_size=100):
 def detect_cover_file_type(file_path):
     try:
         with open(file_path, "rb") as f:
-            header = f.read(8)
+            header = f.read(16)
             
             if header.startswith(PNG_MAGIC):
                 return "png"
@@ -404,14 +420,51 @@ def detect_cover_file_type(file_path):
                 return "gif"
             elif header.startswith(PDF_MAGIC):
                 return "pdf"
-            else:
-                return None
-    except Exception:
+            elif header.startswith(BMP_MAGIC):
+                return "bmp"
+            elif header.startswith(WEBP_MAGIC) and b"WEBP" in header:
+                return "webp"
+            elif header.startswith(TIFF_MAGIC_LE) or header.startswith(TIFF_MAGIC_BE):
+                return "tiff"
+            elif header.startswith(WAV_MAGIC) and b"WAVE" in header:
+                return "wav"
+            elif header.startswith(b"ID3") or header.startswith(MP3_MAGIC) or header.startswith(MP3_MAGIC2) or header.startswith(MP3_MAGIC3) or header.startswith(MP3_MAGIC4):
+                return "mp3"
+            elif header.startswith(FLAC_MAGIC):
+                return "flac"
+            elif header.startswith(AVI_MAGIC) and b"AVI " in header:
+                return "avi"
+            elif header.startswith(ICO_MAGIC):
+                return "ico"
+            elif header.startswith(CUR_MAGIC):
+                return "cur"
+            elif header.startswith(MZ_MAGIC):
+                ext = os.path.splitext(file_path)[1].lower().lstrip('.')
+                if ext == 'dll':
+                    return "dll"
+                return "exe"
+            elif header[4:8] == b"ftyp":
+                if len(header) >= 12 and header[8:12] == b"qt  ":
+                    return "mov"
+                return "mp4"
+            if len(header) >= 8:
+                size = int.from_bytes(header[0:4], byteorder='big')
+                if size >= 8 and size <= 1024:
+                    f.seek(0)
+                    box_data = f.read(size)
+                    if len(box_data) >= 8 and box_data[4:8] == b"ftyp":
+                        major = box_data[8:12] if len(box_data) >= 12 else None
+                        if major == b"qt  ":
+                            return "mov"
+                        return "mp4"
+            
+            return None
+    except Exception as e:
         return None
 
 if command == "pack":
     if len(sys.argv) < 5:
-        print(f"USAGE: {sys.argv[0]} pack cover.[png|pdf|jpg|gif] file1 [file2 file3 ...] output.[png|pdf|jpg|gif]")
+        print(f"USAGE: {sys.argv[0]} pack cover.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|avi|ico|cur|mp4|mov|exe|dll] file1 [file2 file3 ...] output.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|avi|ico|cur|mp4|mov|exe|dll]")
         print(f"       # Embeds files into cover file and saves to output file")
         sys.exit(1)
     
@@ -430,7 +483,7 @@ if command == "pack":
     
     cover_type = detect_cover_file_type(cover_file)
     if not cover_type:
-        print(f"\033[31m[!] Error: Cover file '{cover_file}' is not a supported format (png, jpg, gif, pdf)\033[0m")
+        print(f"\033[31m[!] Error: Cover file '{cover_file}' is not a supported format (png, jpg, gif, pdf, bmp, webp, tiff, wav, mp3, flac, avi, ico, cur, mp4, mov, exe, dll)\033[0m")
         sys.exit(1)
     
     print(f"[\033[36m+\033[0m] Detected cover file type: {cover_type.upper()}")
@@ -619,6 +672,67 @@ if command == "pack":
                 
                 output_out.write(content_dat)
                 content_embedded = True
+                
+            elif cover_type == "bmp":
+                bmp_data = cover_in.read()
+                if len(bmp_data) >= 6:
+                    bmp_size = int.from_bytes(bmp_data[2:6], "little")
+                    zip_data = bmp_data[bmp_size:]
+                else:
+                    raise ValueError(f"Invalid BMP file: {cover_file}, file too small")
+                
+                output_out.write(bmp_data)
+                
+                start_offset = len(bmp_data)
+                print(f"[\033[32m*\033[0m] ZIP data will start at offset \033[1m{hex(start_offset)}\033[0m")
+                
+                content_dat = bytearray(content_in.read())
+                
+                print("[\033[36m+\033[0m] Fixing up zip offsets for BMP/ZIP compatibility...")
+                success = fixup_zip(content_dat, start_offset)
+                if not success:
+                    print("\033[33m[!] Warning: ZIP fix-up may not have worked correctly\033[0m")
+                
+                output_out.write(content_dat)
+                content_embedded = True
+                
+            elif cover_type == "webp" or cover_type == "wav":
+                riff_data = cover_in.read()
+                if len(riff_data) < 12:
+                    raise ValueError(f"Invalid {cover_type.upper()} file: {cover_file}, file too small")
+                
+                output_out.write(riff_data)
+                
+                start_offset = len(riff_data)
+                print(f"[\033[32m*\033[0m] ZIP data will start at offset \033[1m{hex(start_offset)}\033[0m")
+                
+                content_dat = bytearray(content_in.read())
+                
+                print(f"[\033[36m+\033[0m] Fixing up zip offsets for {cover_type.upper()}/ZIP compatibility...")
+                success = fixup_zip(content_dat, start_offset)
+                if not success:
+                    print("\033[33m[!] Warning: ZIP fix-up may not have worked correctly\033[0m")
+                
+                output_out.write(content_dat)
+                content_embedded = True
+                
+            elif cover_type in ["tiff", "mp3", "flac", "avi", "ico", "cur", "mp4", "mov", "exe", "dll"]:
+                format_data = cover_in.read()
+                
+                output_out.write(format_data)
+                
+                start_offset = len(format_data)
+                print(f"[\033[32m*\033[0m] ZIP data will start at offset \033[1m{hex(start_offset)}\033[0m")
+                
+                content_dat = bytearray(content_in.read())
+                
+                print(f"[\033[36m+\033[0m] Fixing up zip offsets for {cover_type.upper()}/ZIP compatibility...")
+                success = fixup_zip(content_dat, start_offset)
+                if not success:
+                    print("\033[33m[!] Warning: ZIP fix-up may not have worked correctly\033[0m")
+                
+                output_out.write(content_dat)
+                content_embedded = True
             
             if content_embedded:
                 print(f"\n[\033[32m✓\033[0m] \033[1mOperation successful\033[0m:")
@@ -642,7 +756,7 @@ if command == "pack":
 
 elif command == "extract":
     if len(sys.argv) < 3:
-        print(f"USAGE: {sys.argv[0]} extract input.[png|pdf|jpg|gif] [output]")
+        print(f"USAGE: {sys.argv[0]} extract input.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|avi|ico|cur|mp4|mov|exe|dll] [output]")
         print(f"       # If output is omitted, extracts to directory named after input file")
         sys.exit(1)
         
@@ -664,7 +778,7 @@ elif command == "extract":
     
     input_type = detect_cover_file_type(input_file)
     if not input_type:
-        print(f"\033[31m[!] Error: Input file '{input_file}' is not a supported format (png, jpg, gif, pdf)\033[0m")
+        print(f"\033[31m[!] Error: Input file '{input_file}' is not a supported format (png, jpg, gif, pdf, bmp, webp, tiff, wav, mp3, flac, avi, ico, cur, mp4, mov, exe, dll)\033[0m")
         sys.exit(1)
     
     print(f"[\033[36m+\033[0m] Detected input file type: {input_type.upper()}")
@@ -734,6 +848,34 @@ elif command == "extract":
                 else:
                     eol_pos += 1
                 zip_data = pdf_data[eol_pos:]
+                
+            elif input_type == "bmp":
+                bmp_data = f_in.read()
+                if len(bmp_data) >= 6:
+                    bmp_size = int.from_bytes(bmp_data[2:6], "little")
+                    zip_data = bmp_data[bmp_size:]
+                else:
+                    raise ValueError(f"Invalid BMP file: {input_file}, file too small")
+                
+            elif input_type == "webp" or input_type == "wav":
+                riff_data = f_in.read()
+                if len(riff_data) >= 12:
+                    riff_size = int.from_bytes(riff_data[4:8], "little") + 8
+                    zip_data = riff_data[riff_size:]
+                else:
+                    raise ValueError(f"Invalid {input_type.upper()} file: {input_file}, file too small")
+                
+            elif input_type in ["tiff", "mp3", "flac", "avi", "ico", "cur", "mp4", "mov", "exe", "dll"]:
+                data = f_in.read()
+                zip_signatures = [b'PK\x03\x04', b'PK\x05\x06', b'PK\x07\x08']
+                
+                for sig in zip_signatures:
+                    sig_pos = data.find(sig)
+                    if sig_pos > 0:
+                        zip_data = data[sig_pos:]
+                        break
+                else:
+                    raise ValueError(f"Could not find ZIP data in {input_file}")
         
         with open(temp_zip_path, "wb") as f_out:
             f_out.write(zip_data)
@@ -796,7 +938,7 @@ elif command == "detect":
             
         file_type = detect_cover_file_type(file_path)
         if not file_type:
-            print(f"\033[31m[!] File '{file_path}' is not a supported format (png, jpg, gif, pdf)\033[0m")
+            print(f"\033[31m[!] File '{file_path}' is not a supported format (png, jpg, gif, pdf, bmp, webp, tiff, wav, mp3, flac, avi, ico, cur, mp4, mov, exe, dll)\033[0m")
             return False
         
         print(f"[\033[36m*\033[0m] File type: \033[1m{file_type.upper()}\033[0m")
@@ -846,6 +988,39 @@ elif command == "detect":
                             print(f"[\033[33m!\033[0m] Found {trailing_bytes} bytes after PDF EOF marker")
                             is_suspicious = True
                 
+                elif file_type == "bmp":
+                    if len(content) >= 6:
+                        bmp_size = int.from_bytes(content[2:6], "little")
+                        trailing_data = content[bmp_size:]
+                        found_sig = False
+                        for sig in zip_signatures:
+                            pos = trailing_data.find(sig)
+                            if pos >= 0:
+                                abs_pos = bmp_size + pos
+                                print(f"[\033[31m!\033[0m] Found ZIP signature at offset {abs_pos}")
+                                found_sig = True
+                        if found_sig:
+                            trailing_bytes = len(trailing_data)
+                            print(f"[\033[33m!\033[0m] Found {trailing_bytes} bytes after BMP declared size")
+                            is_suspicious = True
+                
+                elif file_type == "webp" or file_type == "wav":
+                    if len(content) >= 12:
+                        riff_size = int.from_bytes(content[4:8], "little") + 8
+                        if len(content) > riff_size:
+                            trailing_bytes = len(content) - riff_size
+                            print(f"[\033[33m!\033[0m] Found {trailing_bytes} bytes after {file_type.upper()} declared size")
+                            is_suspicious = True
+                
+                elif file_type == "tiff":
+                    pass
+                
+                elif file_type == "mp3":
+                    pass
+                
+                elif file_type == "flac":
+                    pass
+                
                 if is_suspicious:
                     print("[\033[31m!\033[0m] This file likely contains embedded data")
                     
@@ -867,6 +1042,18 @@ elif command == "detect":
                                 temp.write(content[trailer_pos+1:])
                             elif file_type == "pdf":
                                 temp.write(content[eol_pos+1:])
+                            elif file_type == "bmp":
+                                bmp_size = int.from_bytes(content[2:6], "little")
+                                temp.write(content[bmp_size:])
+                            elif file_type == "webp" or file_type == "wav":
+                                riff_size = int.from_bytes(content[4:8], "little") + 8
+                                temp.write(content[riff_size:])
+                            elif file_type in ["tiff", "mp3", "flac", "avi", "ico", "cur", "mp4", "mov", "exe", "dll"]:
+                                for sig in zip_signatures:
+                                    sig_pos = content.find(sig)
+                                    if sig_pos > 0:
+                                        temp.write(content[sig_pos:])
+                                        break
                         
                         try:
                             with zipfile.ZipFile(temp_path, 'r') as zipf:
@@ -897,7 +1084,7 @@ elif command == "detect":
     else:
         print("\033[36m[*]\033[0m Scanning current directory for files with potential embedded content...")
         
-        supported_files = glob.glob("*.png") + glob.glob("*.jpg") + glob.glob("*.jpeg") + glob.glob("*.gif") + glob.glob("*.pdf")
+        supported_files = (glob.glob("*.png") + glob.glob("*.jpg") + glob.glob("*.jpeg") + glob.glob("*.gif") + glob.glob("*.pdf") + glob.glob("*.bmp") + glob.glob("*.webp") + glob.glob("*.tiff") + glob.glob("*.tif") + glob.glob("*.wav") + glob.glob("*.mp3") + glob.glob("*.flac") + glob.glob("*.avi") + glob.glob("*.ico") + glob.glob("*.cur") + glob.glob("*.mp4") + glob.glob("*.mov") + glob.glob("*.exe") + glob.glob("*.dll"))
         
         if not supported_files:
             print("\033[33m[!]\033[0m No supported files found in the current directory.")
