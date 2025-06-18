@@ -3,7 +3,7 @@
 PolyZip - A tool for creating polyglot files (FILE + ZIP)
 Based on the work of DavidBuchanan314 (https://github.com/DavidBuchanan314/tweetable-polyglot-png)
 Author: InfoSecREDD
-Version: 2.1.0
+Version: 2.1.1
 """
 
 import zlib
@@ -21,122 +21,105 @@ import zipfile
 import datetime
 import base64
 import secrets
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
 
-try:
-    from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
-    ARGON2_AVAILABLE = True
-except ImportError:
-    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-    ARGON2_AVAILABLE = False
+ARGON2_AVAILABLE = False
 
 def check_and_install_dependencies():
+    """Always ensure we're running in our own virtual environment with all dependencies"""
+    venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.poly_venv')
+
+    if platform.system() == 'Windows':
+        our_venv_python = os.path.join(venv_dir, 'Scripts', 'python.exe')
+    else:
+        our_venv_python = os.path.join(venv_dir, 'bin', 'python')
+
+    current_python = os.path.abspath(sys.executable)
+    our_python = os.path.abspath(our_venv_python)
+
+    in_our_venv = (
+        current_python == our_python or  # Exact path match
+        os.path.basename(current_python) == os.path.basename(our_python) and current_python.startswith(os.path.abspath(venv_dir)) or  # Same filename in our venv dir
+        (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix and os.path.abspath(sys.prefix) == os.path.abspath(venv_dir))  # sys.prefix points to our venv
+    )
+    
+    if not in_our_venv:
+        venv_exists = os.path.exists(venv_dir)
+        
+        if not venv_exists:
+            print(f"[\033[36m*\033[0m] Setting up dedicated virtual environment...")
+            print(f"[\033[36m+\033[0m] Creating virtual environment in {venv_dir}")
+            try:
+                subprocess.check_call([sys.executable, '-m', 'venv', venv_dir])
+            except Exception as e:
+                print(f"[\033[31m!\033[0m] Failed to create virtual environment: {e}")
+                sys.exit(1)
+            print(f"[\033[36m*\033[0m] Restarting script in virtual environment...")
+
+        if platform.system() == 'Windows':
+            venv_python = os.path.join(venv_dir, 'Scripts', 'python.exe')
+        else:
+            venv_python = os.path.join(venv_dir, 'bin', 'python')
+
+        if not os.path.exists(venv_python):
+            print(f"[\033[31m!\033[0m] Virtual environment Python not found at {venv_python}")
+            sys.exit(1)
+
+        os.execl(venv_python, venv_python, *sys.argv)
+
     required_packages = [
         {'package': 'python-magic', 'import_name': 'magic', 'optional': True},
         {'package': 'cryptography', 'import_name': 'cryptography', 'optional': False}
     ]
     
-    in_venv = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
-    venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.poly_venv')
-    
-    in_our_venv = False
-    if in_venv and os.path.dirname(os.path.abspath(sys.prefix)) == os.path.dirname(os.path.abspath(venv_dir)):
-        in_our_venv = True
-    
-    if os.path.exists(venv_dir) and not in_our_venv:
-        print(f"[\033[36m*\033[0m] Virtual environment found, restarting script in venv...")
-        if platform.system() == 'Windows':
-            venv_python = os.path.join(venv_dir, 'Scripts', 'python.exe')
-        else:
-            venv_python = os.path.join(venv_dir, 'bin', 'python')
-        
-        if os.path.exists(venv_python):
-            os.execl(venv_python, venv_python, *sys.argv)
-        else:
-            print(f"[\033[33m!\033[0m] Virtual environment found but Python executable not found at {venv_python}")
-
-    missing_critical_packages = []
-    missing_optional_packages = []
-    
+    missing_packages = []
     for package_info in required_packages:
         if importlib.util.find_spec(package_info['import_name']) is None:
-            if package_info.get('optional', False):
-                missing_optional_packages.append(package_info['package'])
-            else:
-                missing_critical_packages.append(package_info['package'])
+            missing_packages.append(package_info['package'])
     
-    if in_our_venv and (missing_critical_packages or missing_optional_packages):
-        all_missing = missing_critical_packages + missing_optional_packages
-        print(f"[\033[36m*\033[0m] Running in our venv but missing packages: {', '.join(all_missing)}")
+    if missing_packages:
+        print(f"[\033[36m*\033[0m] Installing missing packages: {', '.join(missing_packages)}")
         try:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install'] + all_missing)
-            print(f"[\033[32m✓\033[0m] Dependencies installed in venv!")
-            return
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install'] + missing_packages)
+            print(f"[\033[32m✓\033[0m] Dependencies installed successfully!")
         except Exception as e:
-            print(f"[\033[31m!\033[0m] Failed to install dependencies in venv: {e}")
-    
-    if missing_critical_packages:
-        print(f"[\033[31m!\033[0m] Critical packages are missing: {', '.join(missing_critical_packages)}")
-        user_input = input(f"[\033[36m?\033[0m] Do you want to install them now? (y/n): ").strip().lower()
-        if user_input != 'y':
-            print(f"[\033[31m!\033[0m] Cannot continue without required packages.")
-            sys.exit(1)
-        install_packages(missing_critical_packages)
-    
-    if missing_optional_packages:
-        print(f"[\033[33m!\033[0m] Optional packages are missing: {', '.join(missing_optional_packages)}")
-        print(f"[\033[36m*\033[0m] The tool will use fallback methods, but some features might be limited.")
-        print(f"[\033[36m?\033[0m] Would you like to install optional packages in a virtual environment for better functionality? (y/n): ", end="")
-        user_input = input().strip().lower()
-        if user_input == 'y':
-            install_packages(missing_optional_packages)
-        else:
-            print(f"[\033[36m*\033[0m] You can install them manually with: pip install {' '.join(missing_optional_packages)}")
-
-def install_packages(package_list):
-    if not package_list:
-        return
-        
-    venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.poly_venv')
-    
-    in_our_venv = False
-    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        if os.path.dirname(os.path.abspath(sys.prefix)) == os.path.dirname(os.path.abspath(venv_dir)):
-            in_our_venv = True
-    
-    if not in_our_venv:
-        print(f"[\033[36m+\033[0m] Creating virtual environment in {venv_dir}")
-        try:
-            if not os.path.exists(venv_dir):
-                subprocess.check_call([sys.executable, '-m', 'venv', venv_dir])
-            
-            if platform.system() == 'Windows':
-                venv_python = os.path.join(venv_dir, 'Scripts', 'python.exe')
-            else:
-                venv_python = os.path.join(venv_dir, 'bin', 'python')
-            
-            subprocess.check_call([venv_python, '-m', 'pip', 'install'] + package_list)
-            
-            print(f"[\033[32m✓\033[0m] Dependencies installed! Restarting script in virtual environment...")
-            os.execl(venv_python, venv_python, *sys.argv)
-        except Exception as e:
-            print(f"[\033[31m!\033[0m] Failed to setup virtual environment: {e}")
-            print(f"[\033[31m!\033[0m] Please install the required packages manually:")
-            print(f"    pip install {' '.join(package_list)}")
-            sys.exit(1)
+            print(f"[\033[33m!\033[0m] pip failed: {e}, trying pip3...")
+            try:
+                subprocess.check_call([sys.executable, '-m', 'pip3', 'install'] + missing_packages)
+                print(f"[\033[32m✓\033[0m] Dependencies installed successfully using pip3!")
+            except Exception as e2:
+                print(f"[\033[31m!\033[0m] Failed to install dependencies with both pip and pip3: {e2}")
+                print(f"[\033[31m!\033[0m] Please install manually in the virtual environment:")
+                print(f"    source {venv_dir}/bin/activate  # or {venv_dir}\\Scripts\\activate on Windows")
+                print(f"    pip install {' '.join(missing_packages)}")
+                sys.exit(1)
     else:
+        print(f"[\033[32m✓\033[0m] Using virtual environment")
+
+def import_cryptography():
+    """Import cryptography modules after dependency checking"""
+    global ARGON2_AVAILABLE, Cipher, algorithms, modes, Scrypt, hashes, default_backend, Argon2id, PBKDF2HMAC
+    
+    try:
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.backends import default_backend
+        
         try:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install'] + package_list)
-            print(f"[\033[32m✓\033[0m] Dependencies installed! Script will work with full functionality.")
-        except Exception as e:
-            print(f"[\033[31m!\033[0m] Failed to install dependencies: {e}")
-            print(f"[\033[36m*\033[0m] The script will continue using fallback methods.")
+            from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
+            ARGON2_AVAILABLE = True
+        except ImportError:
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+            ARGON2_AVAILABLE = False
+            
+    except ImportError as e:
+        print(f"\033[31m[!] Error importing cryptography: {e}\033[0m")
+        print(f"\033[31m[!] Please install cryptography: pip install cryptography\033[0m")
+        sys.exit(1)
 
 if __name__ == "__main__":
     check_and_install_dependencies()
+    import_cryptography()
 
 BANNER = r'''
 ██████╗  ██████╗ ██╗  ██╗   ██╗███████╗██╗██████╗ 
@@ -200,7 +183,7 @@ def print_banner():
     colored_banner = colors['cyan'] + BANNER + colors['reset']
     print(colored_banner)
     
-    version_info = f"{colors['green']}[+]{colors['reset']} {colors['white']}Version 2.1.0{colors['reset']} | " + \
+    version_info = f"{colors['green']}[+]{colors['reset']} {colors['white']}Version 2.1.1{colors['reset']} | " + \
                    f"{colors['green']}[+]{colors['reset']} {colors['white']}Data Hidden in Plain Sight{colors['reset']}"
     print(version_info)
     print(f"{colors['green']}[+]{colors['reset']} {colors['white']}Use {colors['cyan']}detect{colors['reset']} to scan for hidden data")
@@ -313,7 +296,6 @@ if len(sys.argv) < 2:
     print_banner()
     print_usage()
 
-# Chat functionality helper functions
 def create_chat_data(title="Chat Log"):
     """Create initial chat data structure"""
     return {
@@ -359,6 +341,10 @@ def load_key_from_file(filename):
 
 def derive_key_from_password(password, salt):
     """Derive AES key from password using Argon2id or PBKDF2 fallback"""
+    # Ensure cryptography is imported
+    if 'Cipher' not in globals():
+        import_cryptography()
+        
     if ARGON2_AVAILABLE:
         kdf = Argon2id(
             salt=salt,
@@ -379,6 +365,9 @@ def derive_key_from_password(password, salt):
 
 def encrypt_data(data, key):
     """Encrypt data using AES-256-GCM"""
+    if 'Cipher' not in globals():
+        import_cryptography()
+        
     iv = secrets.token_bytes(12)
 
     cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
@@ -389,6 +378,9 @@ def encrypt_data(data, key):
 
 def decrypt_data(encrypted_data, key):
     """Decrypt data using AES-256-GCM"""
+    if 'Cipher' not in globals():
+        import_cryptography()
+        
     try:
         encrypted_payload = base64.b64decode(encrypted_data.encode())
         iv = encrypted_payload[:12]
