@@ -3,7 +3,7 @@
 PolyZip - A tool for creating polyglot files (FILE + ZIP)
 Based on the work of DavidBuchanan314 (https://github.com/DavidBuchanan314/tweetable-polyglot-png)
 Author: InfoSecREDD
-Version: 2.1.1
+Version: 2.1.2
 """
 
 import zlib
@@ -97,7 +97,7 @@ def check_and_install_dependencies():
 
 def import_cryptography():
     """Import cryptography modules after dependency checking"""
-    global ARGON2_AVAILABLE, Cipher, algorithms, modes, Scrypt, hashes, default_backend, Argon2id, PBKDF2HMAC
+    global ARGON2_AVAILABLE, Cipher, algorithms, modes, Scrypt, hashes, default_backend, Argon2id
     
     try:
         from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -109,7 +109,6 @@ def import_cryptography():
             from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
             ARGON2_AVAILABLE = True
         except ImportError:
-            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
             ARGON2_AVAILABLE = False
             
     except ImportError as e:
@@ -183,7 +182,7 @@ def print_banner():
     colored_banner = colors['cyan'] + BANNER + colors['reset']
     print(colored_banner)
     
-    version_info = f"{colors['green']}[+]{colors['reset']} {colors['white']}Version 2.1.1{colors['reset']} | " + \
+    version_info = f"{colors['green']}[+]{colors['reset']} {colors['white']}Version 2.1.2{colors['reset']} | " + \
                    f"{colors['green']}[+]{colors['reset']} {colors['white']}Data Hidden in Plain Sight{colors['reset']}"
     print(version_info)
     print(f"{colors['green']}[+]{colors['reset']} {colors['white']}Use {colors['cyan']}detect{colors['reset']} to scan for hidden data")
@@ -209,15 +208,17 @@ def print_usage():
     
     # PACK command
     print(f"\n  {colors['bold']}{colors['cyan']}pack{colors['reset']} - {colors['white']}Hide files inside images/documents{colors['reset']}")
-    print(f"    {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} pack {colors['green']}cover_file{colors['reset']} {colors['blue']}file1 [file2 ...]{colors['reset']} {colors['magenta']}output_file{colors['reset']}")
+    print(f"    {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} pack {colors['green']}cover_file{colors['reset']} {colors['blue']}file1 [file2 ...]{colors['reset']} {colors['magenta']}output_file{colors['reset']} {colors['red']}[encryption]{colors['reset']}")
     print(f"    {colors['yellow']}Example:{colors['reset']} {sys.argv[0]} pack photo.png secret.txt hidden_photo.png")
+    print(f"    {colors['yellow']}Encrypted:{colors['reset']} {sys.argv[0]} pack photo.png secret.txt hidden_photo.png --key=my.key")
     print(f"    {colors['yellow']}Supports:{colors['reset']} PNG, JPEG, GIF, PDF, BMP, WebP, TIFF, WAV, MP3, FLAC, OGG,")
     print(f"              AVI, MKV, WebM, FLV, ICO, CUR, ICNS, MP4, MOV, M4A, EXE, DLL, ELF, MSI, TTF, OTF, WOFF")
     
     # EXTRACT command  
     print(f"\n  {colors['bold']}{colors['cyan']}extract{colors['reset']} - {colors['white']}Extract hidden files from images/documents{colors['reset']}")
-    print(f"    {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} extract {colors['green']}input_file{colors['reset']} {colors['blue']}[output_directory]{colors['reset']}")
+    print(f"    {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} extract {colors['green']}input_file{colors['reset']} {colors['blue']}[output_directory]{colors['reset']} {colors['red']}[encryption]{colors['reset']}")
     print(f"    {colors['yellow']}Example:{colors['reset']} {sys.argv[0]} extract hidden_photo.png extracted_files/")
+    print(f"    {colors['yellow']}Encrypted:{colors['reset']} {sys.argv[0]} extract hidden_photo.png extracted_files/ --key=my.key")
     print(f"    {colors['yellow']}Note:{colors['reset']} If output directory is omitted, extracts to folder named after input file")
     
     # DETECT command
@@ -263,29 +264,25 @@ def print_usage():
     print(f"        {sys.argv[0]} chat export secret_chat.jpg backup.html --key=team.key")
     print(f"        {sys.argv[0]} chat export secret_chat.pdf backup.json --password=mypass123")
     print(f"        {sys.argv[0]} chat export hidden_chat.mkv backup.txt")
-    
-    # Encryption options
     print(f"\n  {colors['bold']}{colors['red']}ENCRYPTION OPTIONS:{colors['reset']}")
     print(f"    {colors['cyan']}--key=filename.key{colors['reset']}     Use AES-256 encryption with key file (auto-generated if missing)")
     print(f"    {colors['cyan']}--password=yourpass{colors['reset']}    Use AES-256 encryption with password (Argon2id + salt)")
     print(f"    {colors['yellow']}Note:{colors['reset']} Encrypted chats are completely secure and undetectable")
-    
-    # Examples section
     print(f"\n{colors['bold']}{colors['green']}QUICK EXAMPLES:{colors['reset']}")
     print(f"  {colors['white']}Hide files:{colors['reset']}          {sys.argv[0]} pack photo.jpg document.pdf hidden.jpg")
+    print(f"  {colors['white']}Hide files encrypted:{colors['reset']}  {sys.argv[0]} pack photo.jpg secret.txt hidden.jpg --key=my.key")
     print(f"  {colors['white']}Extract files:{colors['reset']}       {sys.argv[0]} extract hidden.jpg")
+    print(f"  {colors['white']}Extract encrypted:{colors['reset']}    {sys.argv[0]} extract hidden.jpg output/ --key=my.key")
     print(f"  {colors['white']}Scan for hidden data:{colors['reset']} {sys.argv[0]} detect")
     print(f"  {colors['white']}Create encrypted chat:{colors['reset']} {sys.argv[0]} chat create cover.jpg chat.jpg --key=my.key")
     print(f"  {colors['white']}Add encrypted message:{colors['reset']} {sys.argv[0]} chat add chat.pdf Alice \"Hello!\" --key=my.key")
     print(f"  {colors['white']}Read encrypted chat:{colors['reset']}   {sys.argv[0]} chat read chat.gif --key=my.key")
-    print(f"  {colors['cyan']}💡 Chat works with ANY file format - images, videos, documents, executables, etc!{colors['reset']}")
-    
-    # Security note
+    print(f"  {colors['cyan']}💡 Both files AND chat work with ANY file format - images, videos, documents, executables, etc!{colors['reset']}")
     print(f"\n{colors['bold']}{colors['yellow']}SECURITY FEATURES:{colors['reset']}")
-    print(f"  • {colors['green']}AES-256-GCM encryption{colors['reset']} with authenticated encryption")
+    print(f"  • {colors['green']}AES-256-GCM encryption{colors['reset']} with authenticated encryption for files & chat")
     print(f"  • {colors['green']}Perfect steganography{colors['reset']} - files appear completely normal")
     print(f"  • {colors['green']}Key file generation{colors['reset']} - automatic secure key creation")
-    print(f"  • {colors['green']}Password protection{colors['reset']} - Argon2id with secure parameters")
+    print(f"  • {colors['green']}Password protection{colors['reset']} - Argon2id or Scrypt with secure parameters")
     print(f"  • {colors['green']}Tamper detection{colors['reset']} - GCM authentication prevents modification")
     
     print(f"\n{colors['bold']}{colors['cyan']}💡 TIP:{colors['reset']} {colors['white']}Files with hidden data can be opened normally in any image viewer/PDF reader!{colors['reset']}")
@@ -340,8 +337,7 @@ def load_key_from_file(filename):
         raise ValueError(f"Could not load key from {filename}: {e}")
 
 def derive_key_from_password(password, salt):
-    """Derive AES key from password using Argon2id or PBKDF2 fallback"""
-    # Ensure cryptography is imported
+    """Derive AES key from password using Argon2id or Scrypt fallback"""
     if 'Cipher' not in globals():
         import_cryptography()
         
@@ -354,17 +350,18 @@ def derive_key_from_password(password, salt):
             iterations=3
         )
     else:
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
+        kdf = Scrypt(
             salt=salt,
-            iterations=100000,
+            length=32,
+            n=2**15,  # 32768
+            r=8,
+            p=1,
             backend=default_backend()
         )
     return kdf.derive(password.encode())
 
 def encrypt_data(data, key):
-    """Encrypt data using AES-256-GCM"""
+    """Encrypt text data using AES-256-GCM"""
     if 'Cipher' not in globals():
         import_cryptography()
         
@@ -377,7 +374,7 @@ def encrypt_data(data, key):
     return base64.b64encode(encrypted_payload).decode()
 
 def decrypt_data(encrypted_data, key):
-    """Decrypt data using AES-256-GCM"""
+    """Decrypt text data using AES-256-GCM"""
     if 'Cipher' not in globals():
         import_cryptography()
         
@@ -393,6 +390,35 @@ def decrypt_data(encrypted_data, key):
         
     except Exception as e:
         raise ValueError(f"Decryption failed: {e}")
+
+def encrypt_file_data(data, key):
+    """Encrypt binary file data using AES-256-GCM"""
+    if 'Cipher' not in globals():
+        import_cryptography()
+        
+    iv = secrets.token_bytes(12)
+    cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(data) + encryptor.finalize()
+    encrypted_payload = iv + encryptor.tag + ciphertext
+    return encrypted_payload
+
+def decrypt_file_data(encrypted_data, key):
+    """Decrypt binary file data using AES-256-GCM"""
+    if 'Cipher' not in globals():
+        import_cryptography()
+        
+    try:
+        iv = encrypted_data[:12]
+        auth_tag = encrypted_data[12:28]
+        ciphertext = encrypted_data[28:]
+        cipher = Cipher(algorithms.AES(key), modes.GCM(iv, auth_tag), backend=default_backend())
+        decryptor = cipher.decryptor()
+        plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+        return plaintext
+        
+    except Exception as e:
+        raise ValueError(f"File decryption failed: {e}")
 
 def parse_encryption_args(args):
     """Parse encryption arguments from command line"""
@@ -824,7 +850,6 @@ def save_chat_to_image(cover_image, chat_data, output_image, encryption_key=None
                 output_out.write(content_dat)
                 
             else:
-                # For other formats, append at the end
                 format_data = cover_in.read()
                 output_out.write(format_data)
                 start_offset = len(format_data)
@@ -1149,13 +1174,42 @@ def detect_cover_file_type(file_path):
 
 if command == "pack":
     if len(sys.argv) < 5:
-        print(f"USAGE: {sys.argv[0]} pack cover.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff] file1 [file2 file3 ...] output.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff]")
+        print(f"USAGE: {sys.argv[0]} pack cover.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff] file1 [file2 file3 ...] output.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff] [--key=file.key|--password=pass]")
         print(f"       # Embeds files into cover file and saves to output file")
+        print(f"       # Use --key=file.key for AES-256 encryption with key file")
+        print(f"       # Use --password=pass for AES-256 encryption with password")
         sys.exit(1)
     
-    cover_file = sys.argv[2]
-    output_file = sys.argv[-1]
-    files_to_embed = sys.argv[3:-1]
+    encryption_args = []
+    regular_args = []
+    for arg in sys.argv[2:]:
+        if arg.startswith('--key=') or arg.startswith('--password='):
+            encryption_args.append(arg)
+        else:
+            regular_args.append(arg)
+    
+    if len(regular_args) < 3:
+        print(f"USAGE: {sys.argv[0]} pack cover_file file1 [file2 ...] output_file [--key=file.key|--password=pass]")
+        sys.exit(1)
+    
+    cover_file = regular_args[0]
+    output_file = regular_args[-1]
+    files_to_embed = regular_args[1:-1]
+    
+    key_file, password = parse_encryption_args(encryption_args)
+    encryption_key, salt = None, None
+    
+    if key_file or password:
+        try:
+            encryption_key, salt = get_encryption_key(key_file, password, create_if_missing=True)
+            if encryption_key:
+                if key_file:
+                    print(f"[\033[36m+\033[0m] Using encryption with key file: {key_file}")
+                else:
+                    print(f"[\033[36m+\033[0m] Using encryption with password")
+        except Exception as e:
+            print(f"\033[31m[!] Encryption setup error: {e}\033[0m")
+            sys.exit(1)
     
     if not os.path.exists(cover_file):
         print(f"\033[31m[!] Error: Cover file '{cover_file}' not found\033[0m")
@@ -1180,9 +1234,39 @@ if command == "pack":
         
     try:
         with zipfile.ZipFile(temp_zip_path, 'w') as zipf:
-            for file_path in files_to_embed:
-                print(f"[\033[36m+\033[0m] Adding to ZIP: {os.path.basename(file_path)}")
-                zipf.write(file_path, os.path.basename(file_path))
+            if encryption_key:
+                # Create metadata for encrypted files
+                metadata = {
+                    "encrypted": True,
+                    "version": "1.0",
+                    "files": []
+                }
+                if salt:
+                    metadata["salt"] = base64.b64encode(salt).decode()
+                
+                for file_path in files_to_embed:
+                    print(f"[\033[36m+\033[0m] Encrypting and adding to ZIP: {os.path.basename(file_path)}")
+                    
+                    with open(file_path, 'rb') as f:
+                        file_data = f.read()
+                    
+                    encrypted_data = encrypt_file_data(file_data, encryption_key)
+                    encrypted_filename = os.path.basename(file_path) + '.enc'
+                    zipf.writestr(encrypted_filename, encrypted_data)
+                    
+                    metadata["files"].append({
+                        "original": os.path.basename(file_path),
+                        "encrypted": encrypted_filename,
+                        "size": len(file_data)
+                    })
+                
+                zipf.writestr('metadata.json', json.dumps(metadata, indent=2))
+                print(f"[\033[32m+\033[0m] Files encrypted with AES-256-GCM")
+                
+            else:
+                for file_path in files_to_embed:
+                    print(f"[\033[36m+\033[0m] Adding to ZIP: {os.path.basename(file_path)}")
+                    zipf.write(file_path, os.path.basename(file_path))
         
         try:
             cover_in = open(cover_file, "rb")
@@ -1425,7 +1509,10 @@ if command == "pack":
                 print(f"\n[\033[32m✓\033[0m] \033[1mOperation successful\033[0m:")
                 print(f"[\033[32m+\033[0m] Created dual-format {cover_type.upper()}/ZIP file: {output_file}")
                 print(f"[\033[32m+\033[0m] This file can be viewed as {cover_type.upper()} or renamed to .zip and extracted")
-                print(f"[\033[32m+\033[0m] Embedded {len(files_to_embed)} files\n")
+                print(f"[\033[32m+\033[0m] Embedded {len(files_to_embed)} files")
+                if encryption_key:
+                    print(f"[\033[32m+\033[0m] Files are AES-256-GCM encrypted and secure")
+                print()
             else:
                 print(f"\033[31m[!] Error: Could not embed content in {cover_file}\033[0m")
 
@@ -1443,14 +1530,43 @@ if command == "pack":
 
 elif command == "extract":
     if len(sys.argv) < 3:
-        print(f"USAGE: {sys.argv[0]} extract input.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff] [output]")
+        print(f"USAGE: {sys.argv[0]} extract input.[png|pdf|jpg|gif|bmp|webp|tiff|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff] [output] [--key=file.key|--password=pass]")
         print(f"       # If output is omitted, extracts to directory named after input file")
+        print(f"       # Use --key=file.key for AES-256 decryption with key file")
+        print(f"       # Use --password=pass for AES-256 decryption with password")
+        sys.exit(1)
+    
+    encryption_args = []
+    regular_args = []
+    for arg in sys.argv[2:]:
+        if arg.startswith('--key=') or arg.startswith('--password='):
+            encryption_args.append(arg)
+        else:
+            regular_args.append(arg)
+    
+    if len(regular_args) < 1:
+        print(f"USAGE: {sys.argv[0]} extract input_file [output_directory] [--key=file.key|--password=pass]")
         sys.exit(1)
         
-    input_file = sys.argv[2]
+    input_file = regular_args[0]
     
-    if len(sys.argv) >= 4:
-        output_path = sys.argv[3]
+    key_file, password = parse_encryption_args(encryption_args)
+    encryption_key, salt = None, None
+    
+    if key_file or password:
+        try:
+            encryption_key, salt = get_encryption_key(key_file, password, create_if_missing=False)
+            if encryption_key:
+                if key_file:
+                    print(f"[\033[36m+\033[0m] Using decryption with key file: {key_file}")
+                else:
+                    print(f"[\033[36m+\033[0m] Using decryption with password")
+        except Exception as e:
+            print(f"\033[31m[!] Decryption setup error: {e}\033[0m")
+            sys.exit(1)
+    
+    if len(regular_args) >= 2:
+        output_path = regular_args[1]
     else:
         output_path = os.path.splitext(os.path.basename(input_file))[0]
         print(f"[\033[36m+\033[0m] No output specified, extracting to directory: \033[1m{output_path}\033[0m")
@@ -1578,33 +1694,98 @@ elif command == "extract":
                 file_list = zipf.namelist()
                 print(f"[\033[36m+\033[0m] Found {len(file_list)} files in ZIP data")
                 
-                for file_name in file_list:
-                    output_file_path = os.path.join(output_path, file_name)
-                    zipf.extract(file_name, output_path)
+                is_encrypted = 'metadata.json' in file_list
+                files_to_decrypt = []
+                
+                if is_encrypted:
+                    if not encryption_key:
+                        print(f"\033[31m[!] Error: Files are encrypted but no decryption key/password provided\033[0m")
+                        sys.exit(1)
                     
-                    file_size = os.path.getsize(output_file_path)
-                    print(f"[\033[32m+\033[0m] Extracted: \033[1m{file_name}\033[0m ({file_size} bytes)")
+                    metadata_json = zipf.read('metadata.json').decode('utf-8')
+                    metadata = json.loads(metadata_json)
                     
-                    if file_size < 1024:
-                        is_text_by_ext = output_file_path.endswith(('.txt', '.md', '.csv', '.json', '.xml', '.html', '.css', '.js', '.py', '.sh'))
+                    if not metadata.get('encrypted', False):
+                        print(f"\033[31m[!] Error: Invalid encrypted file format\033[0m")
+                        sys.exit(1)
+                    
+                    actual_key = encryption_key
+                    if password and 'salt' in metadata:
+                        salt = base64.b64decode(metadata['salt'].encode())
+                        actual_key = derive_key_from_password(password, salt)
+                    
+                    print(f"[\033[36m+\033[0m] Decrypting {len(metadata['files'])} encrypted files")
+                    
+                    for file_info in metadata['files']:
+                        encrypted_filename = file_info['encrypted']
+                        original_filename = file_info['original']
+                        encrypted_data = zipf.read(encrypted_filename)
                         
-                        with open(output_file_path, 'rb') as f:
-                            sample_data = f.read(100)
+                        try:
+                            decrypted_data = decrypt_file_data(encrypted_data, actual_key)
+                        except Exception as e:
+                            print(f"\033[31m[!] Failed to decrypt {original_filename}: {e}\033[0m")
+                            continue
+                        
+                        output_file_path = os.path.join(output_path, original_filename)
+                        with open(output_file_path, 'wb') as f:
+                            f.write(decrypted_data)
+                        
+                        file_size = len(decrypted_data)
+                        print(f"[\033[32m+\033[0m] Decrypted and extracted: \033[1m{original_filename}\033[0m ({file_size} bytes)")
+                        
+                        if file_size < 1024:
+                            is_text_by_ext = output_file_path.endswith(('.txt', '.md', '.csv', '.json', '.xml', '.html', '.css', '.js', '.py', '.sh'))
+                            
+                            sample_data = decrypted_data[:100]
                             is_text = is_text_by_ext or is_likely_text_file(sample_data)
-                        
-                        if is_text:
-                            try:
-                                with open(output_file_path, 'r') as f:
-                                    content = f.read().strip()
+                            
+                            if is_text:
+                                try:
+                                    content = decrypted_data.decode('utf-8').strip()
                                     print(f"[\033[36m*\033[0m] File content preview:")
                                     print(f"\033[33m----------------------------------------\033[0m")
                                     print(f"\033[37m{content}\033[0m")
                                     print(f"\033[33m----------------------------------------\033[0m")
-                            except UnicodeDecodeError:
-                                pass
-                
-                print(f"\n[\033[32m✓\033[0m] \033[1mOperation successful\033[0m:")
-                print(f"[\033[32m+\033[0m] Successfully extracted {len(file_list)} files to {output_path}")
+                                except UnicodeDecodeError:
+                                    pass
+                    
+                    extracted_count = len(metadata['files'])
+                    print(f"\n[\033[32m✓\033[0m] \033[1mOperation successful\033[0m:")
+                    print(f"[\033[32m+\033[0m] Successfully decrypted and extracted {extracted_count} files to {output_path}")
+                    print(f"[\033[32m+\033[0m] Files were AES-256-GCM encrypted")
+                    
+                else:
+                    if encryption_key:
+                        print("[\033[33m!\033[0m] Warning: Decryption key/password provided but files are not encrypted")
+                    
+                    for file_name in file_list:
+                        output_file_path = os.path.join(output_path, file_name)
+                        zipf.extract(file_name, output_path)
+                        
+                        file_size = os.path.getsize(output_file_path)
+                        print(f"[\033[32m+\033[0m] Extracted: \033[1m{file_name}\033[0m ({file_size} bytes)")
+                        
+                        if file_size < 1024:
+                            is_text_by_ext = output_file_path.endswith(('.txt', '.md', '.csv', '.json', '.xml', '.html', '.css', '.js', '.py', '.sh'))
+                            
+                            with open(output_file_path, 'rb') as f:
+                                sample_data = f.read(100)
+                                is_text = is_text_by_ext or is_likely_text_file(sample_data)
+                            
+                            if is_text:
+                                try:
+                                    with open(output_file_path, 'r') as f:
+                                        content = f.read().strip()
+                                        print(f"[\033[36m*\033[0m] File content preview:")
+                                        print(f"\033[33m----------------------------------------\033[0m")
+                                        print(f"\033[37m{content}\033[0m")
+                                        print(f"\033[33m----------------------------------------\033[0m")
+                                except UnicodeDecodeError:
+                                    pass
+                    
+                    print(f"\n[\033[32m✓\033[0m] \033[1mOperation successful\033[0m:")
+                    print(f"[\033[32m+\033[0m] Successfully extracted {len(file_list)} files to {output_path}")
                 
         except zipfile.BadZipFile:
             print(f"\033[31m[!] Error: Could not extract ZIP data from {input_file}. The file might be corrupted or not contain embedded ZIP data.\033[0m")
@@ -1998,7 +2179,6 @@ elif command == "chat":
                 elif output_ext == '.html':
                     f.write(format_chat_html(chat_data))
                 elif output_ext == '.txt':
-                    # Plain text format
                     f.write(f"Chat Log: {chat_data['title']}\n")
                     f.write(f"Created: {chat_data['created']}\n")
                     f.write(f"Participants: {', '.join(chat_data['participants'])}\n")
