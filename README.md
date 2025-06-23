@@ -3,7 +3,7 @@
 
 PolyZip is a Python 3 command-line tool that embeds ZIP archives into a wide range of media and document formats—PNG, JPEG, GIF, PDF, BMP, WebP, TIFF, WAV, MP3, FLAC, OGG, AVI, MKV, WebM, FLV, ICO, CUR, ICNS, MP4, MOV, M4A, EXE, DLL, ELF, MSI, TTF, OTF, and WOFF —by leveraging each format's trailing-data tolerance or internal chunk/atom structure. For PNG, it injects the ZIP archive into the first IDAT chunk and corrects central directory offsets; for JPEG/GIF/PDF, it appends ZIP data after the EOI/trailer/EOF markers; for RIFF-based formats (BMP, WebP, WAV, AVI), it appends ZIP data beyond the declared chunk size; for TIFF, MP3, FLAC, OGG, ICO/CUR/ICNS, MP4/MOV/M4A, ELF, MSI, and font formats (TTF/OTF/WOFF), it appends after the last valid header/frame/atom and updates ZIP offsets accordingly. The resulting files display normally in standard viewers yet remain fully valid ZIP archives when renamed to `.zip` or extracted with standard tools.
 
-**🆕 NEW: Enhanced with encrypted hidden chat functionality!** PolyZip 2.1 now includes a sophisticated chat system that creates AES-256 encrypted chat logs hidden within any supported file format. Chat messages are completely invisible to external analysis and protected by military-grade encryption using Argon2id password derivation or secure key files.
+**🆕 NEW: Enhanced with full encryption support!** PolyZip 2.1.2 now includes AES-256 encryption for both file hiding and chat functionality. Hide encrypted files or create encrypted chat logs within any supported file format. All encrypted data is completely invisible to external analysis and protected by military-grade encryption using Argon2id password derivation (with Scrypt fallback) or secure key files.
 
 Original PNG+ZIP polyglot technique by [DavidBuchanan314](https://github.com/DavidBuchanan314/tweetable-polyglot-png); extended multi-format embedding, multi-file packing, extraction, detection, and encrypted chat implementation by [InfoSecREDD](https://github.com/InfoSecREDD).
 
@@ -40,14 +40,15 @@ Original PNG+ZIP polyglot technique by [DavidBuchanan314](https://github.com/Dav
   - **OTF + ZIP**
   - **WOFF + ZIP**
 
-- **🔒 Encrypted Hidden Chat System**:
-  - Create secure chat logs hidden in any supported file format
-  - AES-256-GCM encryption with authenticated encryption
-  - Argon2id password derivation for maximum security
-  - Key file authentication with auto-generation
-  - Perfect steganography - files appear completely normal
-  - Tamper detection and protection
-  - Export to HTML, JSON, or text formats
+- **🔒 Comprehensive Encryption System**:
+  - **Encrypted File Hiding**: Secure file embedding with AES-256-GCM encryption
+  - **Encrypted Chat Logs**: Create secure chat logs hidden in any supported file format
+  - **Military-Grade Security**: AES-256-GCM encryption with authenticated encryption
+  - **Robust Key Derivation**: Argon2id password derivation with Scrypt fallback for maximum compatibility
+  - **Key File Authentication**: Auto-generated secure keys with file-based authentication
+  - **Perfect Steganography**: Files appear completely normal to external analysis
+  - **Tamper Detection**: GCM authentication prevents modification without detection
+  - **Export Options**: Chat export to HTML, JSON, or text formats
 
 - Automatic detection of embedded content
 - Extract hidden files from polyglot containers
@@ -79,26 +80,58 @@ chmod +x poly.py
 
 Embed one or more files into a cover file:
 ```bash
-./poly.py pack cover.[png|jpg|jpeg|gif|pdf|bmp|webp|tiff|tif|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff] file1 [file2 ...] output.[png|jpg|jpeg|gif|pdf|bmp|webp|tiff|tif|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff]
+./poly.py pack cover.[format] file1 [file2 ...] output.[format] [--key=file.key|--password=pass]
 ```
 
-Example:
+**Basic Examples:**
 ```bash
+# Hide files without encryption
 ./poly.py pack cover.png secret.txt output.png
+
+# Hide multiple files
+./poly.py pack cover.jpg file1.txt file2.pdf output.jpg
+```
+
+**🔒 Encrypted File Hiding:**
+```bash
+# Hide files with password encryption
+./poly.py pack cover.png secret.txt encrypted.png --password=MySecurePass123
+
+# Hide files with key file encryption (auto-generates key if missing)
+./poly.py pack cover.pdf confidential.doc encrypted.pdf --key=mykey.key
+
+# Hide multiple files with encryption
+./poly.py pack cover.mp4 file1.txt file2.jpg encrypted.mp4 --password=SecretPass
 ```
 
 ### Extracting Files
 
 Extract hidden files from a polyglot container:
 ```bash
-./poly.py extract input.[png|jpg|jpeg|gif|pdf|bmp|webp|tiff|tif|wav|mp3|flac|ogg|avi|mkv|webm|flv|ico|cur|icns|mp4|mov|m4a|exe|dll|elf|msi|ttf|otf|woff] [output]
+./poly.py extract input.[format] [output_directory] [--key=file.key|--password=pass]
 ```
 
 If no output directory is specified, files will be extracted to a directory named after the input file.
 
-Example:
+**Basic Examples:**
 ```bash
-./poly.py extract output.png
+# Extract unencrypted files
+./poly.py extract hidden.png
+
+# Extract to specific directory
+./poly.py extract hidden.png extracted_files/
+```
+
+**🔒 Encrypted File Extraction:**
+```bash
+# Extract password-protected files
+./poly.py extract encrypted.png decrypted/ --password=MySecurePass123
+
+# Extract key-protected files
+./poly.py extract encrypted.pdf decrypted/ --key=mykey.key
+
+# Extract with automatic directory creation
+./poly.py extract encrypted.mp4 --password=SecretPass
 ```
 
 ### Detecting Embedded Content
@@ -209,7 +242,7 @@ Export chats to files:
 ### 🔐 Security Features
 
 - **AES-256-GCM Encryption**: Military-grade encryption with authenticated encryption
-- **Argon2id Password Derivation**: Secure password hashing resistant to GPU attacks
+- **Argon2id Password Derivation**: Secure password hashing resistant to GPU attacks (with Scrypt fallback for compatibility)
 - **Key File Authentication**: Auto-generated secure keys for file-based authentication
 - **Perfect Steganography**: Hidden data is completely undetectable by external analysis
 - **Tamper Detection**: GCM authentication prevents modification of encrypted data
@@ -312,7 +345,7 @@ The encrypted chat system uses a sophisticated multi-layered approach:
 1. **Data Structure**: Chat messages are stored in JSON format with timestamps, participants, and message content
 2. **Encryption Layer**: 
    - **AES-256-GCM**: Provides both confidentiality and authentication
-   - **Argon2id**: Password-based key derivation resistant to GPU attacks
+   - **Argon2id**: Password-based key derivation resistant to GPU attacks (with Scrypt fallback)
    - **Random Salt**: Unique salt for each chat prevents rainbow table attacks
    - **Key Files**: Auto-generated 256-bit keys for file-based authentication
 3. **Steganographic Embedding**: Encrypted data is embedded using the same techniques as ZIP files
@@ -558,12 +591,13 @@ The encrypted chat system uses a sophisticated multi-layered approach:
    - **PE Formats (EXE/DLL)**:
      - Some third-party GUI utilities (WinRAR, macOS Archive Utility) may report the archive as corrupted due to trailing data. Windows Explorer's built-in extractor and command-line tools (`unzip`, `7z`) handle it correctly after renaming to `.zip`.
 
-5. **🔒 Chat System Limitations**:
+5. **🔒 Encryption System Limitations**:
    - **Password Security**: Passwords are only as strong as the user makes them
    - **Key File Security**: Key files must be stored securely and transmitted safely
-   - **Platform Processing**: Some platforms may strip or modify files, breaking the hidden chat
-   - **File Size**: Large chat histories may exceed platform upload limits
-   - **Backup Responsibility**: Users must backup key files and passwords - lost credentials mean lost access
+   - **Platform Processing**: Some platforms may strip or modify files, breaking the hidden data
+   - **File Size**: Large encrypted files may exceed platform upload limits
+   - **Backup Responsibility**: Users must backup key files and passwords - lost credentials mean lost access to both files and chats
+   - **Compatibility**: Scrypt fallback provides compatibility when Argon2id is unavailable, but with slightly different security parameters
 
 ### Dependencies
 
@@ -574,8 +608,8 @@ The encrypted chat system uses a sophisticated multi-layered approach:
 ## Security Considerations
 
 - The tool creates valid files that can be viewed normally
-- **🔒 Encrypted chats are protected by military-grade AES-256-GCM encryption**
-- **🔑 Passwords use Argon2id derivation resistant to GPU attacks**
+- **🔒 Both files and chats are protected by military-grade AES-256-GCM encryption**
+- **🔑 Passwords use Argon2id derivation (with Scrypt fallback) resistant to GPU attacks**
 - **🛡️ Key files provide secure file-based authentication**
 - **👁️ Hidden data is completely undetectable by external analysis**
 - **🔒 Even if extracted, encrypted data remains unreadable without proper credentials**
@@ -586,13 +620,19 @@ The encrypted chat system uses a sophisticated multi-layered approach:
 
 ## Quick Start Examples
 
-### File Hiding (Traditional)
+### File Hiding
 ```bash
-# Hide files in an image
+# Hide files in an image (unencrypted)
 ./poly.py pack photo.png secrets.txt hidden_photo.png
 
-# Extract hidden files
+# Hide files with encryption
+./poly.py pack photo.png secrets.txt encrypted_photo.png --password=MyPassword123
+
+# Extract hidden files (unencrypted)
 ./poly.py extract hidden_photo.png
+
+# Extract encrypted files
+./poly.py extract encrypted_photo.png --password=MyPassword123
 
 # Detect hidden data
 ./poly.py detect hidden_photo.png
