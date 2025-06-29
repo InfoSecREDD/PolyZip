@@ -3,7 +3,7 @@
 PolyZip - A tool for creating polyglot files (FILE + ZIP)
 Based on the work of DavidBuchanan314 (https://github.com/DavidBuchanan314/tweetable-polyglot-png)
 Author: InfoSecREDD
-Version: 2.1.2
+Version: 2.1.3
 """
 
 import zlib
@@ -21,6 +21,7 @@ import zipfile
 import datetime
 import base64
 import secrets
+import shutil
 
 ARGON2_AVAILABLE = False
 
@@ -37,15 +38,36 @@ def check_and_install_dependencies():
     our_python = os.path.abspath(our_venv_python)
 
     in_our_venv = (
-        current_python == our_python or  # Exact path match
-        os.path.basename(current_python) == os.path.basename(our_python) and current_python.startswith(os.path.abspath(venv_dir)) or  # Same filename in our venv dir
-        (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix and os.path.abspath(sys.prefix) == os.path.abspath(venv_dir))  # sys.prefix points to our venv
+        current_python == our_python or
+        os.path.basename(current_python) == os.path.basename(our_python) and current_python.startswith(os.path.abspath(venv_dir)) or
+        (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix and os.path.abspath(sys.prefix) == os.path.abspath(venv_dir))
     )
     
     if not in_our_venv:
         venv_exists = os.path.exists(venv_dir)
+        venv_python_working = False
         
-        if not venv_exists:
+        if platform.system() == 'Windows':
+            venv_python = os.path.join(venv_dir, 'Scripts', 'python.exe')
+        else:
+            venv_python = os.path.join(venv_dir, 'bin', 'python')
+        
+        if venv_exists and os.path.exists(venv_python):
+            try:
+                result = subprocess.run([venv_python, '--version'], 
+                                      capture_output=True, timeout=10)
+                venv_python_working = result.returncode == 0
+            except Exception:
+                venv_python_working = False
+        
+        if not venv_exists or not venv_python_working:
+            if venv_exists and not venv_python_working:
+                print(f"[\033[33m!\033[0m] Virtual environment is corrupted, recreating...")
+                try:
+                    shutil.rmtree(venv_dir)
+                except Exception as e:
+                    print(f"[\033[33m!\033[0m] Warning: Could not remove old venv: {e}")
+            
             print(f"[\033[36m*\033[0m] Setting up dedicated virtual environment...")
             print(f"[\033[36m+\033[0m] Creating virtual environment in {venv_dir}")
             try:
@@ -55,13 +77,18 @@ def check_and_install_dependencies():
                 sys.exit(1)
             print(f"[\033[36m*\033[0m] Restarting script in virtual environment...")
 
-        if platform.system() == 'Windows':
-            venv_python = os.path.join(venv_dir, 'Scripts', 'python.exe')
-        else:
-            venv_python = os.path.join(venv_dir, 'bin', 'python')
-
         if not os.path.exists(venv_python):
             print(f"[\033[31m!\033[0m] Virtual environment Python not found at {venv_python}")
+            sys.exit(1)
+        
+        try:
+            result = subprocess.run([venv_python, '--version'], 
+                                  capture_output=True, timeout=10)
+            if result.returncode != 0:
+                print(f"[\033[31m!\033[0m] Virtual environment Python is not functional")
+                sys.exit(1)
+        except Exception as e:
+            print(f"[\033[31m!\033[0m] Virtual environment Python test failed: {e}")
             sys.exit(1)
 
         os.execl(venv_python, venv_python, *sys.argv)
@@ -182,7 +209,7 @@ def print_banner():
     colored_banner = colors['cyan'] + BANNER + colors['reset']
     print(colored_banner)
     
-    version_info = f"{colors['green']}[+]{colors['reset']} {colors['white']}Version 2.1.2{colors['reset']} | " + \
+    version_info = f"{colors['green']}[+]{colors['reset']} {colors['white']}Version 2.1.3{colors['reset']} | " + \
                    f"{colors['green']}[+]{colors['reset']} {colors['white']}Data Hidden in Plain Sight{colors['reset']}"
     print(version_info)
     print(f"{colors['green']}[+]{colors['reset']} {colors['white']}Use {colors['cyan']}detect{colors['reset']} to scan for hidden data")
@@ -203,35 +230,24 @@ def print_usage():
     
     print(f"\n{colors['bold']}{colors['cyan']}USAGE:{colors['reset']}")
     print(f"  {colors['white']}{sys.argv[0]}{colors['reset']} {colors['yellow']}[command]{colors['reset']} {colors['green']}[options...]{colors['reset']}")
-    
     print(f"\n{colors['bold']}{colors['magenta']}COMMANDS:{colors['reset']}")
-    
-    # PACK command
     print(f"\n  {colors['bold']}{colors['cyan']}pack{colors['reset']} - {colors['white']}Hide files inside images/documents{colors['reset']}")
     print(f"    {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} pack {colors['green']}cover_file{colors['reset']} {colors['blue']}file1 [file2 ...]{colors['reset']} {colors['magenta']}output_file{colors['reset']} {colors['red']}[encryption]{colors['reset']}")
     print(f"    {colors['yellow']}Example:{colors['reset']} {sys.argv[0]} pack photo.png secret.txt hidden_photo.png")
     print(f"    {colors['yellow']}Encrypted:{colors['reset']} {sys.argv[0]} pack photo.png secret.txt hidden_photo.png --key=my.key")
     print(f"    {colors['yellow']}Supports:{colors['reset']} PNG, JPEG, GIF, PDF, BMP, WebP, TIFF, WAV, MP3, FLAC, OGG,")
     print(f"              AVI, MKV, WebM, FLV, ICO, CUR, ICNS, MP4, MOV, M4A, EXE, DLL, ELF, MSI, TTF, OTF, WOFF")
-    
-    # EXTRACT command  
     print(f"\n  {colors['bold']}{colors['cyan']}extract{colors['reset']} - {colors['white']}Extract hidden files from images/documents{colors['reset']}")
     print(f"    {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} extract {colors['green']}input_file{colors['reset']} {colors['blue']}[output_directory]{colors['reset']} {colors['red']}[encryption]{colors['reset']}")
     print(f"    {colors['yellow']}Example:{colors['reset']} {sys.argv[0]} extract hidden_photo.png extracted_files/")
     print(f"    {colors['yellow']}Encrypted:{colors['reset']} {sys.argv[0]} extract hidden_photo.png extracted_files/ --key=my.key")
     print(f"    {colors['yellow']}Note:{colors['reset']} If output directory is omitted, extracts to folder named after input file")
-    
-    # DETECT command
     print(f"\n  {colors['bold']}{colors['cyan']}detect{colors['reset']} - {colors['white']}Scan for hidden data in files{colors['reset']}")
     print(f"    {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} detect {colors['green']}[file]{colors['reset']}")
     print(f"    {colors['yellow']}Example:{colors['reset']} {sys.argv[0]} detect suspicious_image.png")
     print(f"    {colors['yellow']}Note:{colors['reset']} If no file specified, scans all supported files in current directory")
-    
-    # CHAT command
     print(f"\n  {colors['bold']}{colors['cyan']}chat{colors['reset']} - {colors['white']}Create encrypted hidden chat logs in images{colors['reset']}")
     print(f"    {colors['bold']}{colors['green']}Subcommands:{colors['reset']}")
-    
-    # Chat create
     print(f"\n    {colors['bold']}{colors['yellow']}create{colors['reset']} - Create new encrypted chat")
     print(f"      {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} chat create {colors['green']}cover.[any]{colors['reset']} {colors['magenta']}output.[any]{colors['reset']} {colors['blue']}[\"title\"]{colors['reset']} {colors['red']}[encryption]{colors['reset']}")
     print(f"      {colors['yellow']}Examples:{colors['reset']}")
@@ -240,24 +256,18 @@ def print_usage():
     print(f"        {sys.argv[0]} chat create image.gif secret_chat.gif  # Unencrypted")
     print(f"        {sys.argv[0]} chat create cover.png output.png \"Any file type works!\"")
     print(f"      {colors['cyan']}Supported formats:{colors['reset']} PNG, JPG, GIF, PDF, BMP, WEBP, TIFF, WAV, MP3, FLAC, OGG, AVI, MKV, WebM, FLV, ICO, MP4, MOV, EXE, and more")
-    
-    # Chat add
     print(f"\n    {colors['bold']}{colors['yellow']}add{colors['reset']} - Add message to existing chat")
     print(f"      {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} chat add {colors['green']}chat.[any]{colors['reset']} {colors['blue']}sender{colors['reset']} {colors['cyan']}\"message\"{colors['reset']} {colors['magenta']}[output.[any]]{colors['reset']} {colors['red']}[encryption]{colors['reset']}")
     print(f"      {colors['yellow']}Examples:{colors['reset']}")
     print(f"        {sys.argv[0]} chat add secret_chat.jpg Alice \"Hello team!\" --key=team.key")
     print(f"        {sys.argv[0]} chat add secret_chat.pdf Bob \"Secret message\" --password=mypass123")
     print(f"        {sys.argv[0]} chat add hidden_chat.gif Charlie \"Works with any file type!\"")
-    
-    # Chat read
     print(f"\n    {colors['bold']}{colors['yellow']}read{colors['reset']} - Display chat messages")
     print(f"      {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} chat read {colors['green']}chat.[any]{colors['reset']} {colors['blue']}[--format=terminal|json|html]{colors['reset']} {colors['red']}[encryption]{colors['reset']}")
     print(f"      {colors['yellow']}Examples:{colors['reset']}")
     print(f"        {sys.argv[0]} chat read secret_chat.jpg --key=team.key")
     print(f"        {sys.argv[0]} chat read secret_chat.pdf --format=json --password=mypass123")
     print(f"        {sys.argv[0]} chat read hidden_chat.mp4 --format=html")
-    
-    # Chat export
     print(f"\n    {colors['bold']}{colors['yellow']}export{colors['reset']} - Export chat to file")
     print(f"      {colors['yellow']}Usage:{colors['reset']} {sys.argv[0]} chat export {colors['green']}chat.[any]{colors['reset']} {colors['magenta']}output.[txt|json|html]{colors['reset']} {colors['red']}[encryption]{colors['reset']}")
     print(f"      {colors['yellow']}Examples:{colors['reset']}")
@@ -538,7 +548,7 @@ def extract_chat_from_image(image_path, encryption_key=None, password=None):
                     if not chunk_type or len(chunk_type) < 4:
                         break
                     
-                    if chunk_type == b"IDAT":
+                    if chunk_type == b"IEND":
                         f_in.seek(chunk_len + 4, 1)
                         zip_data_start = f_in.tell()
                         break
@@ -668,7 +678,7 @@ def extract_cover_from_chat_image(chat_image_path):
                 cover_data.extend(chunk_type)
                 cover_data.extend(chunk_body)
                 cover_data.extend(chunk_csum_bytes)
-                if chunk_type == b"IDAT":
+                if chunk_type == b"IEND":
                     break
             
             return bytes(cover_data)
@@ -775,12 +785,12 @@ def save_chat_to_image(cover_image, chat_data, output_image, encryption_key=None
                     
                     chunk_csum = int.from_bytes(chunk_csum_bytes, "big")
                     
-                    if chunk_type == b"IDAT" and not content_embedded:
-                        output_out.write(chunk_len.to_bytes(4, "big"))
-                        output_out.write(chunk_type)
-                        output_out.write(chunk_body)
-                        output_out.write(chunk_csum.to_bytes(4, "big"))
-                        
+                    output_out.write(chunk_len.to_bytes(4, "big"))
+                    output_out.write(chunk_type)
+                    output_out.write(chunk_body)
+                    output_out.write(chunk_csum.to_bytes(4, "big"))
+                    
+                    if chunk_type == b"IEND" and not content_embedded:
                         current_pos = output_out.tell()
                         start_offset = current_pos
                         
@@ -789,18 +799,6 @@ def save_chat_to_image(cover_image, chat_data, output_image, encryption_key=None
                         
                         output_out.write(content_dat)
                         content_embedded = True
-                        continue
-                        
-                    elif chunk_type == b"IDAT" and content_embedded:
-                        print(f"[\033[36m+\033[0m] Skipping redundant IDAT chunk after ZIP embedding")
-                        continue
-                    
-                    output_out.write(chunk_len.to_bytes(4, "big"))
-                    output_out.write(chunk_type)
-                    output_out.write(chunk_body)
-                    output_out.write(chunk_csum.to_bytes(4, "big"))
-                    
-                    if chunk_type == b"IEND":
                         break
 
             elif cover_type == "jpeg":
@@ -1000,7 +998,6 @@ def detect_file_type(data):
         b'7z\xbc\xaf\x27\x1c': '.7z',
         b'\x00\x01\x00\x00\x00': '.ttf',
         b'OTTO': '.otf',
-
         b'\x4d\x5a': '.exe',
         b'<!DOCTYPE html': '.html',
         b'<html': '.html',
@@ -1235,7 +1232,6 @@ if command == "pack":
     try:
         with zipfile.ZipFile(temp_zip_path, 'w') as zipf:
             if encryption_key:
-                # Create metadata for encrypted files
                 metadata = {
                     "encrypted": True,
                     "version": "1.0",
@@ -1245,10 +1241,11 @@ if command == "pack":
                     metadata["salt"] = base64.b64encode(salt).decode()
                 
                 for file_path in files_to_embed:
-                    print(f"[\033[36m+\033[0m] Encrypting and adding to ZIP: {os.path.basename(file_path)}")
-                    
                     with open(file_path, 'rb') as f:
                         file_data = f.read()
+                    
+                    file_size = len(file_data)
+                    print(f"[\033[36m+\033[0m] Encrypting and adding to ZIP: \033[1m{os.path.basename(file_path)}\033[0m ({file_size:,} bytes)")
                     
                     encrypted_data = encrypt_file_data(file_data, encryption_key)
                     encrypted_filename = os.path.basename(file_path) + '.enc'
@@ -1257,7 +1254,7 @@ if command == "pack":
                     metadata["files"].append({
                         "original": os.path.basename(file_path),
                         "encrypted": encrypted_filename,
-                        "size": len(file_data)
+                        "size": file_size
                     })
                 
                 zipf.writestr('metadata.json', json.dumps(metadata, indent=2))
@@ -1265,7 +1262,8 @@ if command == "pack":
                 
             else:
                 for file_path in files_to_embed:
-                    print(f"[\033[36m+\033[0m] Adding to ZIP: {os.path.basename(file_path)}")
+                    file_size = os.path.getsize(file_path)
+                    print(f"[\033[36m+\033[0m] Adding to ZIP: \033[1m{os.path.basename(file_path)}\033[0m ({file_size:,} bytes)")
                     zipf.write(file_path, os.path.basename(file_path))
         
         try:
@@ -1327,15 +1325,15 @@ if command == "pack":
                     
                     chunk_csum = int.from_bytes(chunk_csum_bytes, "big")
                     
-                    if chunk_type == b"IDAT" and not content_embedded:
+                    output_out.write(chunk_len.to_bytes(4, "big"))
+                    output_out.write(chunk_type)
+                    output_out.write(chunk_body)
+                    output_out.write(chunk_csum.to_bytes(4, "big"))
+                    
+                    if chunk_type == b"IDAT":
                         idat_count += 1
-                        print(f"[\033[36m+\033[0m] Processing IDAT chunk for embedding ZIP data")
-                        
-                        output_out.write(chunk_len.to_bytes(4, "big"))
-                        output_out.write(chunk_type)
-                        output_out.write(chunk_body)
-                        output_out.write(chunk_csum.to_bytes(4, "big"))
-                        
+                    
+                    if chunk_type == b"IEND" and not content_embedded:
                         current_pos = output_out.tell()
                         start_offset = current_pos
                         
@@ -1349,18 +1347,6 @@ if command == "pack":
                         
                         output_out.write(content_dat)
                         content_embedded = True
-                        continue
-                        
-                    elif chunk_type == b"IDAT" and content_embedded:
-                        print(f"[\033[36m+\033[0m] Skipping redundant IDAT chunk after ZIP embedding")
-                        continue
-                    
-                    output_out.write(chunk_len.to_bytes(4, "big"))
-                    output_out.write(chunk_type)
-                    output_out.write(chunk_body)
-                    output_out.write(chunk_csum.to_bytes(4, "big"))
-                    
-                    if chunk_type == b"IEND":
                         break
 
             elif cover_type == "jpeg":
@@ -1506,12 +1492,23 @@ if command == "pack":
                 content_embedded = True
                 
             if content_embedded:
+                total_size = 0
+                for file_path in files_to_embed:
+                    total_size += os.path.getsize(file_path)
+                
                 print(f"\n[\033[32m✓\033[0m] \033[1mOperation successful\033[0m:")
-                print(f"[\033[32m+\033[0m] Created dual-format {cover_type.upper()}/ZIP file: {output_file}")
+                print(f"[\033[32m+\033[0m] Created dual-format {cover_type.upper()}/ZIP file: \033[1m{output_file}\033[0m")
                 print(f"[\033[32m+\033[0m] This file can be viewed as {cover_type.upper()} or renamed to .zip and extracted")
-                print(f"[\033[32m+\033[0m] Embedded {len(files_to_embed)} files")
+                
+                print(f"\n[\033[36m*\033[0m] \033[1mEmbedded Files Summary:\033[0m")
+                for file_path in files_to_embed:
+                    file_size = os.path.getsize(file_path)
+                    print(f"  [\033[32m>\033[0m] \033[1m{os.path.basename(file_path)}\033[0m - {file_size:,} bytes")
+                
+                print(f"\n[\033[32m+\033[0m] Total embedded files: \033[1m{len(files_to_embed)}\033[0m")
+                print(f"[\033[32m+\033[0m] Total embedded data: \033[1m{total_size:,} bytes\033[0m")
                 if encryption_key:
-                    print(f"[\033[32m+\033[0m] Files are AES-256-GCM encrypted and secure")
+                    print(f"[\033[32m+\033[0m] Files are \033[1mAES-256-GCM encrypted\033[0m and secure")
                 print()
             else:
                 print(f"\033[31m[!] Error: Could not embed content in {cover_file}\033[0m")
@@ -1609,7 +1606,7 @@ elif command == "extract":
                     if not chunk_type or len(chunk_type) < 4:
                         break
                     
-                    if chunk_type == b"IDAT":
+                    if chunk_type == b"IEND":
                         f_in.seek(chunk_len + 4, 1)
                         zip_data_start = f_in.tell()
                         break
